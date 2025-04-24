@@ -1,10 +1,15 @@
-import i18nConfig from '@/i18nConfig';
-import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { notFound } from 'next/navigation';
 import { ReactNode } from 'react';
 import { dir } from 'i18next';
-import { notFound } from 'next/navigation';
+
+import initTranslations from '@/app/i18n';
+import { ThemeProvider } from '@/components/theme-provider';
+import TranslationsProvider from '@/components/TranslationsProvider';
+import { Navbar } from '@/components/Navbar'; // Import Navbar
+import i18nConfig from '@/i18nConfig';
+import '@/styles/globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,20 +22,45 @@ export function generateStaticParams() {
   return i18nConfig.locales.map(locale => ({ locale }));
 }
 
+// Definiamo i namespace necessari per il layout e i componenti figli
+const i18nNamespaces = ['common', 'menu']; // Assicuriamo che il namespace 'menu' sia caricato
+
 export default async function RootLayout(props: {
   children: ReactNode;
-  params: Promise<{ locale: string }>;
+  params: { locale: string }; // Rimosso Promise<> perché Next.js lo risolve
 }) {
-  const { locale } = await props.params;
+  const { locale } = await props.params; // Accesso diretto
   const { children } = props;
 
+  // Validazione del locale (già presente, va bene)
   if (!i18nConfig.locales.includes(locale)) {
     notFound();
   }
 
+  // Carica le traduzioni per i namespace del layout
+  const { resources } = await initTranslations(locale, i18nNamespaces);
+
   return (
-    <html lang={locale} dir={dir(locale)}>
-      <body className={inter.className}>{children}</body>
+    <html lang={locale} dir={dir(locale)} suppressHydrationWarning={true}>
+      <body className={`${inter.className} bg-background text-foreground`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <TranslationsProvider
+            namespaces={i18nNamespaces}
+            locale={locale}
+            resources={resources}
+          >
+            <Navbar />
+            <main className="min-h-screen">
+              {children}
+            </main>
+          </TranslationsProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
